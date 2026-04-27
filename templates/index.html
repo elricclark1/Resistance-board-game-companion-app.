@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Resistance</title>
+    <style>
+        :root { --bg: #121212; --card: #1e1e1e; --text: #eee; --prim: #2196f3; --sec: #f44336; --acc: #4caf50; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 400px; }
+        .card { background: var(--card); padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+        h2 { text-align: center; margin-top: 0; }
+        input { width: 100%; padding: 12px; border-radius: 5px; border: 1px solid #333; background: #222; color: white; box-sizing: border-box; margin-bottom: 10px; }
+        button { width: 100%; padding: 14px; border-radius: 5px; border: none; background: var(--prim); color: white; font-weight: bold; cursor: pointer; margin: 5px 0; }
+        button.sec { background: var(--sec); }
+        button.acc { background: var(--acc); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(0.5); }
+        button.selected { outline: 4px solid white; transform: scale(1.05); z-index: 10; box-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        .hidden { display: none !important; }
+        .p-item { padding: 8px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        .p-item.leader { border: 2px solid #ffd700; background: rgba(255, 215, 0, 0.1); border-radius: 8px; }
+        .leader-badge { color: #ffd700; font-weight: bold; font-size: 0.8em; }
+        .m-warning { color: #ff9800; font-size: 0.8em; text-align: center; margin-top: 5px; font-weight: bold; }
+        .rev-box { background: #333; height: 70px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: bold; margin: 10px 0; cursor: pointer; user-select: none; }
+        .stat-bar { display: flex; justify-content: space-around; font-size: 0.9em; margin-bottom: 10px; }
+        .dot { width: 25px; height: 25px; border-radius: 50%; border: 2px solid #444; display: flex; align-items: center; justify-content: center; }
+        .dot.win { background: var(--prim); border-color: var(--prim); }
+        .dot.fail { background: var(--sec); border-color: var(--sec); }
+        .dot.cur { border-color: var(--acc); border-width: 3px; }
+        .dot.two-fails { border: 4px double #ff9800; }
+        .dot-size { font-size: 0.6em; position: absolute; bottom: -15px; width: 100%; text-align: center; color: #888; }
+        .mission-container { position: relative; display: flex; flex-direction: column; align-items: center; }
+        .cb-item { display: flex; align-items: center; gap: 10px; background: #2a2a2a; padding: 8px; border-radius: 5px; margin-bottom: 5px; }
+        .history-item { font-size: 0.85em; padding: 5px; border-bottom: 1px solid #333; color: #aaa; }
+        .voted-msg { color: var(--acc); font-weight: bold; font-size: 0.9em; text-align: center; margin-top: 10px; }
+        
+        /* Help Button & Modal */
+        #help-btn { 
+            position: fixed; top: 15px; right: 15px; width: 35px; height: 35px; 
+            border-radius: 50%; background: var(--prim); color: white; border: none; 
+            font-weight: bold; cursor: pointer; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        #help-modal { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.8); display: flex; align-items: center; 
+            justify-content: center; z-index: 2000; 
+        }
+        .modal-content { 
+            background: var(--card); padding: 25px; border-radius: 12px; 
+            max-width: 90%; max-height: 80%; overflow-y: auto; position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid #444;
+        }
+        .modal-close { 
+            position: absolute; top: 10px; right: 15px; font-size: 1.5em; 
+            color: #888; cursor: pointer; border: none; background: none;
+        }
+        .rules-list { padding-left: 20px; font-size: 0.9em; line-height: 1.5; color: #ccc; }
+        .rules-list li { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <button id="help-btn" onclick="toggleHelp()">?</button>
+
+    <div id="help-modal" class="hidden" onclick="if(event.target === this) toggleHelp()">
+        <div class="modal-content">
+            <button class="modal-close" onclick="toggleHelp()">×</button>
+            <h2 style="margin-bottom: 15px;">How to Play</h2>
+            <p style="font-size: 0.9em; color: var(--prim); font-weight: bold; margin-bottom: 10px;">Objective:</p>
+            <p style="font-size: 0.9em; color: #ccc; margin-bottom: 15px;">Resistance wins if 3 Missions succeed. Spies win if 3 Missions fail or 5 team votes are rejected in one round.</p>
+            
+            <p style="font-size: 0.9em; color: var(--prim); font-weight: bold; margin-bottom: 10px;">Phases:</p>
+            <ul class="rules-list">
+                <li><strong>1. Team Building:</strong> The Leader picks a team of a specific size.</li>
+                <li><strong>2. Voting:</strong> Everyone votes Approve or Reject. A tied vote is a rejection.</li>
+                <li><strong>3. Mission:</strong> Team members secretly choose Success or Fail (Resistance MUST choose Success).</li>
+            </ul>
+
+            <p style="font-size: 0.9em; color: var(--prim); font-weight: bold; margin-top: 15px; margin-bottom: 5px;">Special Rule:</p>
+            <p style="font-size: 0.85em; color: #aaa; font-style: italic;">In games of 7+ players, the 4th mission requires TWO Fails cards to sabotage the mission.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Join View -->
+        <div id="view-join" class="card">
+            <h2>THE RESISTANCE</h2>
+            <div id="continue-section" class="hidden" style="text-align:center; border-bottom:1px solid #333; margin-bottom:15px; padding-bottom:15px;">
+                <p style="font-size:0.9em; color:#aaa;">Welcome back, <span id="saved-name" style="color:white; font-weight:bold;"></span></p>
+                <button onclick="doContinue()">JOIN AS <span id="saved-name-btn"></span></button>
+                <p style="font-size:0.7em; color:#666; margin-top:5px;">Or join as someone new below:</p>
+            </div>
+            <div id="join-form">
+                <input type="text" id="in-name" placeholder="Enter Your Name">
+                <button onclick="doJoin()">JOIN LOBBY</button>
+            </div>
+            <p id="join-status" style="text-align:center; color:#888; font-size:0.8em; margin-top:10px;"></p>
+            <div style="text-align:center; margin-top:10px;">
+                <a href="#" onclick="clearSession()" style="color:#555; font-size:0.7em; text-decoration:none;">Reset Session Data</a>
+            </div>
+        </div>
+
+        <!-- Lobby (Visible to all in LOBBY phase) -->
+        <div id="sec-lobby" class="card hidden">
+            <h2>Lobby</h2>
+            <div style="text-align:center; margin-bottom:15px;">
+                <p style="font-size:0.8em; color:#888; margin-bottom:5px;">Scan to Join:</p>
+                <img id="qr-img" style="width:150px; height:150px; background:white; padding:5px; border-radius:5px;">
+                <p id="join-link" style="font-size:0.7em; color:var(--prim); margin-top:5px;"></p>
+            </div>
+            <div id="p-list"></div>
+            <button id="btn-ready" class="hidden" onclick="doReady()">I AM READY</button>
+        </div>
+
+        <!-- Game View -->
+        <div id="view-game" class="hidden">
+            <div class="stat-bar">
+                <div>Votes: <span id="v-track">0</span>/5</div>
+                <div id="m-dots" style="display:flex; gap:5px;"></div>
+            </div>
+
+            <!-- Player Status -->
+            <div id="sec-players" class="card">
+                <h3 style="margin-top:0; font-size: 0.9em; text-align: center;">Players</h3>
+                <div id="game-p-list"></div>
+            </div>
+
+            <div class="card">
+                <div id="r-txt" style="text-align:center; font-weight:bold;">Role: ???</div>
+                <div id="r-rev" class="rev-box">HOLD TO REVEAL</div>
+                <div id="s-info" class="hidden" style="color:var(--sec); text-align:center; font-size:0.8em; margin-top:5px;"></div>
+            </div>
+
+            <!-- Team Propose -->
+            <div id="sec-propose" class="card hidden">
+                <h2 id="prop-title">Team Selection</h2>
+                <div id="leader-ui" class="hidden">
+                    <p style="text-align:center;">Select <span id="n-need"></span> players:</p>
+                    <div id="cb-list"></div>
+                    <button onclick="doPropose()">PROPOSE TEAM</button>
+                </div>
+                <p id="wait-leader" style="text-align:center;"></p>
+            </div>
+
+            <!-- Voting -->
+            <div id="sec-vote" class="card hidden">
+                <h2>Approve Team?</h2>
+                <p id="prop-names" style="text-align:center; font-weight:bold;"></p>
+                <div id="vote-btns">
+                    <button onclick="doVote(true)" class="acc">APPROVE</button>
+                    <button onclick="doVote(false)" class="sec">REJECT</button>
+                </div>
+                <div id="vote-recorded" class="voted-msg hidden">✓ Vote Recorded</div>
+                <div id="v-res" class="hidden">
+                    <h3 style="margin-bottom:5px;">Results:</h3>
+                    <div id="v-res-list"></div>
+                </div>
+            </div>
+
+            <!-- Mission -->
+            <div id="sec-mission" class="card hidden">
+                <h2>Mission Action</h2>
+                <button onclick="doMVote(true)" class="acc">SUCCESS</button>
+                <button id="btn-fail" onclick="doMVote(false)" class="sec">FAIL</button>
+                <div id="mission-recorded" class="voted-msg hidden">✓ Action Recorded</div>
+            </div>
+
+            <!-- History -->
+            <div id="sec-history" class="card hidden">
+                <h3 style="margin-top:0; font-size: 0.9em; text-align: center;">Mission History</h3>
+                <div id="hist-list"></div>
+            </div>
+
+            <!-- Game Over -->
+            <div id="sec-over" class="card hidden">
+                <h2 id="win-txt"></h2>
+                <button onclick="doReset()" class="sec">RESET SERVER</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        let myName = localStorage.getItem('res_name') || '';
+        let myRole = '';
+        let st = null;
+
+        // Show "Continue as" if name exists, but DON'T auto-join
+        if (myName) {
+            document.getElementById('continue-section').classList.remove('hidden');
+            document.getElementById('saved-name').innerText = myName;
+            document.getElementById('saved-name-btn').innerText = myName.toUpperCase();
+        }
+
+        socket.on('connect', () => { console.log("Connected!"); });
+
+        socket.on('lobby_info', (data) => {
+            if (!st || !st.me || !st.me.name) {
+                const lobbySec = document.getElementById('sec-lobby');
+                const joinStatus = document.getElementById('join-status');
+
+                if (data.phase == 'LOBBY') {
+                    document.getElementById('p-list').innerHTML = data.players.map(p => `<div class="p-item">${p}</div>`).join('');
+                    lobbySec.classList.remove('hidden');
+                    if (data.qr_code) {
+                        document.getElementById('qr-img').src = `data:image/png;base64,${data.qr_code}`;
+                        document.getElementById('join-link').innerText = data.join_url;
+                    }
+                } else {
+                    lobbySec.classList.add('hidden');
+                    document.getElementById('join-form').classList.add('hidden');
+                    document.getElementById('continue-section').classList.add('hidden');
+                    joinStatus.innerHTML = `Game in Progress. Please wait for the next round.`;
+                }
+            }
+        });
+
+        function doJoin() {
+            const n = document.getElementById('in-name').value.trim();
+            if (n) { 
+                myName = n; 
+                localStorage.setItem('res_name', n); 
+                socket.emit('join', { name: n }); 
+                document.getElementById('join-status').innerText = `Connecting as ${n}...`;
+            }
+        }
+
+        function doContinue() {
+            if (myName) {
+                socket.emit('join', { name: myName });
+                document.getElementById('join-status').innerText = `Rejoining as ${myName}...`;
+            }
+        }
+
+        function clearSession() {
+            localStorage.removeItem('res_name');
+            location.reload();
+        }
+
+        function doReady() { socket.emit('toggle_ready'); }
+        function doPropose() {
+            const team = Array.from(document.querySelectorAll('#cb-list input:checked')).map(i => i.value);
+            if (team.length == st.num_needed) socket.emit('propose', { team });
+            else alert("Wrong team size");
+        }
+        function doVote(v) { 
+            const btns = document.querySelectorAll('#vote-btns button');
+            btns.forEach(b => { b.disabled = true; });
+            document.getElementById('vote-recorded').classList.remove('hidden');
+            socket.emit('vote', { vote: v }); 
+        }
+        function doMVote(v) { 
+            const btns = document.querySelectorAll('#sec-mission button');
+            btns.forEach(b => { b.disabled = true; });
+            document.getElementById('mission-recorded').classList.remove('hidden');
+            socket.emit('mission_vote', { vote: v }); 
+        }
+        function doReset() { socket.emit('reset_game'); }
+
+        function toggleHelp() {
+            document.getElementById('help-modal').classList.toggle('hidden');
+        }
+
+        let isHolding = false;
+        const rRev = document.getElementById('r-rev');
+        const setRev = (on) => {
+            isHolding = on;
+            document.getElementById('r-txt').innerText = on ? `Role: ${myRole}` : 'Role: ???';
+            rRev.style.background = on ? (myRole == 'Spy' ? 'var(--sec)' : 'var(--prim)') : '#333';
+            document.getElementById('s-info').classList.toggle('hidden', !on || !st.spies.length);
+        };
+        rRev.onmousedown = rRev.ontouchstart = () => setRev(true);
+        rRev.onmouseup = rRev.onmouseleave = rRev.ontouchend = () => setRev(false);
+
+        let lastPhase = '';
+        socket.on('state', (s) => {
+            if (s.phase !== lastPhase) {
+                // Reset all buttons and messages on phase change
+                document.querySelectorAll('button').forEach(b => {
+                    b.disabled = false;
+                    b.classList.remove('selected');
+                });
+                document.querySelectorAll('.voted-msg').forEach(m => m.classList.add('hidden'));
+                lastPhase = s.phase;
+            }
+            st = s; myRole = s.me.role;
+            const hasJoined = !!(s.me && s.me.name);
+
+            document.getElementById('view-join').classList.toggle('hidden', hasJoined);
+            document.getElementById('view-game').classList.toggle('hidden', !hasJoined || s.phase === 'LOBBY');
+            
+            const show = (id, cond) => document.getElementById(id).classList.toggle('hidden', !cond);
+            show('sec-lobby', s.phase == 'LOBBY');
+            show('sec-propose', s.phase == 'TEAM_BUILDING');
+            show('sec-vote', s.phase == 'VOTING');
+            show('sec-mission', s.phase == 'MISSION' && s.current_team.includes(myName));
+            show('sec-history', s.phase != 'LOBBY' && s.history && s.history.length > 0);
+            show('sec-over', s.phase == 'GAME_OVER');
+
+            if (s.phase == 'LOBBY') {
+                document.getElementById('p-list').innerHTML = s.players.map(p => `
+                    <div class="p-item">
+                        <span>${p.name}</span>
+                        <span style="color: ${p.is_ready ? 'var(--acc)' : '#666'}">${p.is_ready ? '✓ Ready' : '...'}</span>
+                    </div>
+                `).join('');
+                
+                const readyBtn = document.getElementById('btn-ready');
+                show('btn-ready', hasJoined);
+                readyBtn.innerText = (s.me && s.me.is_ready) ? 'UNREADY' : 'I AM READY';
+                readyBtn.classList.toggle('acc', s.me && s.me.is_ready);
+                
+                if (s.qr_code) {
+                    document.getElementById('qr-img').src = `data:image/png;base64,${s.qr_code}`;
+                    document.getElementById('join-link').innerText = s.join_url;
+                }
+            } else {
+                document.getElementById('v-track').innerText = s.vote_track;
+                document.getElementById('m-dots').innerHTML = [0,1,2,3,4].map(i => {
+                    let c = 'dot';
+                    if (i < s.mission_results.length) c += s.mission_results[i] ? ' win' : ' fail';
+                    else if (i == s.mission_idx) c += ' cur';
+                    
+                    // Two fails required indicator (7+ players, 4th mission)
+                    if (i === 3 && s.total_players >= 7) c += ' two-fails';
+                    
+                    const size = s.mission_sizes ? s.mission_sizes[i] : '?';
+                    return `<div class="mission-container"><div class="${c}">${i+1}</div><div class="dot-size">${size}</div></div>`;
+                }).join('');
+                document.getElementById('s-info').innerText = s.spies.length ? "Spies: " + s.spies.join(", ") : "";
+                document.getElementById('s-info').classList.toggle('hidden', !isHolding || !s.spies.length);
+
+                if (s.history && s.history.length > 0) {
+                    document.getElementById('hist-list').innerHTML = s.history.map(h => {
+                        const fails = h.votes.filter(v => !v).length;
+                        const succs = h.votes.filter(v => v).length;
+                        const leader = h.leader ? `<span style="color:#ffd700; font-size:0.9em;"> (Leader: ${h.leader})</span>` : "";
+                        return `<div class="history-item">M${h.mission}: ${h.success?'SUCCESS':'FAIL'} (${succs} Pass, ${fails} Fail)${leader} - [${h.team.join(', ')}]</div>`;
+                    }).join('');
+                }
+
+                document.getElementById('game-p-list').innerHTML = s.players.map(p => `
+                    <div class="p-item ${p.is_leader ? 'leader' : ''}">
+                        <span>${p.name} ${p.is_leader ? '<span class="leader-badge">★ LEADER</span>' : ''}</span>
+                        ${p.name === s.me.name ? '<span style="font-size:0.7em; color:#888;">(YOU)</span>' : ''}
+                    </div>
+                `).join('');
+                
+                if (s.phase == 'TEAM_BUILDING') {
+                    const isL = s.me.name == s.leader;
+                    show('leader-ui', isL);
+                    show('wait-leader', !isL);
+                    document.getElementById('wait-leader').innerText = `${s.leader} is picking a team...`;
+                    if (isL) {
+                        document.getElementById('n-need').innerText = s.num_needed;
+                        document.getElementById('cb-list').innerHTML = s.players.map(p => `<label class="cb-item"><input type="checkbox" value="${p.name}"> ${p.name}</label>`).join('');
+                    }
+                    const isFourth = (s.mission_idx === 3 && s.total_players >= 7);
+                    const target = isL ? document.getElementById('leader-ui') : document.getElementById('wait-leader');
+                    const oldWarn = target.querySelector('.m-warning');
+                    if (oldWarn) oldWarn.remove();
+                    if (isFourth) {
+                        const warnEl = document.createElement('div');
+                        warnEl.className = 'm-warning';
+                        warnEl.innerText = "⚠️ TWO FAILS required to sabotage this mission.";
+                        target.prepend(warnEl);
+                    }
+                } else if (s.phase == 'VOTING') {
+                    document.getElementById('prop-names').innerText = s.current_team.join(", ");
+                    const hasV = s.me.name in s.votes;
+                    show('vote-btns', !hasV);
+                    const done = Object.keys(s.votes).length == s.players.length;
+                    show('v-res', done);
+                    if (done) document.getElementById('v-res-list').innerHTML = s.players.map(p => `<div class="p-item"><span>${p.name}</span><span style="color:${s.votes[p.name]?'var(--acc)':'var(--sec)'}">${s.votes[p.name]?'APP':'REJ'}</span></div>`).join('');
+                } else if (s.phase == 'MISSION') {
+                    const isOnMission = s.current_team.includes(myName);
+                    if (isOnMission) {
+                        show('btn-fail', true);
+                        const isFourth = (s.mission_idx === 3 && s.total_players >= 7);
+                        const missionSec = document.getElementById('sec-mission');
+                        const oldWarn = missionSec.querySelector('.m-warning');
+                        if (oldWarn) oldWarn.remove();
+                        if (isFourth) {
+                            const warnEl = document.createElement('div');
+                            warnEl.className = 'm-warning';
+                            warnEl.style.marginBottom = "10px";
+                            warnEl.innerText = "⚠️ TWO FAILS required to sabotage this mission.";
+                            missionSec.prepend(warnEl);
+                        }
+                    }
+                } else if (s.phase == 'GAME_OVER') {
+                    document.getElementById('win-txt').innerText = `${s.winner.toUpperCase()} WINS!`;
+                }
+            }
+        });
+
+        socket.on('reload_all', () => {
+            localStorage.removeItem('res_name');
+            location.reload();
+        });
+
+        socket.on('error', (m) => {
+            const status = document.getElementById('join-status');
+            if (status) status.innerHTML = `Error: ${m}<br><br><button onclick="clearSession()" class="sec">Reset & Start Over</button>`;
+            else alert(m);
+        });
+    </script>
+</body>
+</html>
